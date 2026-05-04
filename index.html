@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warfarin Calendar</title>
+    <style>
+        body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8f9fa; color: #333; text-align: center; padding: 20px; }
+        .container { max-width: 400px; }
+        .spinner { border: 4px solid #e9ecef; border-top: 4px solid #007bff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .success { color: #28a745; font-size: 1.2em; }
+        .error { color: #dc3545; }
+        a { color: #007bff; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="spinner" id="spinner"></div>
+    <p id="status">Preparing your calendar...</p>
+    <a id="manualLink" style="display:none;" download="warfarin-calendar.ics">Click here if download didn't start</a>
+</div>
+<script>
+(function() {
+    var statusEl = document.getElementById('status');
+    var spinnerEl = document.getElementById('spinner');
+    var manualLink = document.getElementById('manualLink');
+
+    try {
+        var hash = window.location.hash.substring(1);
+        if (!hash) throw new Error('No data');
+
+        var params = {};
+        hash.split('&').forEach(function(pair) {
+            var kv = pair.split('=');
+            params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1] || '');
+        });
+
+        // Required: s=start date (YYYY-MM-DD), d=comma-separated doses, t=reminder time (HH:MM)
+        var startStr = params.s;
+        var dosesStr = params.d;
+        var timeStr = params.t || '18:00';
+        var lang = params.l || 'fr';
+
+        if (!startStr || !dosesStr) throw new Error('Missing parameters');
+
+        var doses = dosesStr.split(',');
+        var timeParts = timeStr.split(':');
+        var hour = timeParts[0].padStart(2, '0');
+        var minute = (timeParts[1] || '00').padStart(2, '0');
+
+        // Parse start date
+        var parts = startStr.split('-');
+        var year = parseInt(parts[0], 10);
+        var month = parseInt(parts[1], 10) - 1;
+        var day = parseInt(parts[2], 10);
+
+        // Build ICS
+        var lines = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//WarfarinCalc//INESSS//FR',
+            'CALSCALE:GREGORIAN',
+            'METHOD:PUBLISH',
+            'X-WR-CALNAME:Warfarine'
+        ];
+
+        for (var i = 0; i < doses.length; i++) {
+            var eventDate = new Date(year, month, day + i);
+            var y = eventDate.getFullYear();
+            var m = String(eventDate.getMonth() + 1).padStart(2, '0');
+            var dd = String(eventDate.getDate()).padStart(2, '0');
+            var dtStart = y + m + dd + 'T' + hour + minute + '00';
+            var dtEnd = y + m + dd + 'T' + hour + String(Math.min(parseInt(minute, 10) + 5, 59)).padStart(2, '0') + '00';
+
+            var doseVal = doses[i].trim();
+            var summary;
+            if (doseVal === 'INR' || doseVal === 'RNI') {
+                summary = lang === 'fr' ? '🩸 Test RNI' : '🩸 INR Test';
+            } else if (doseVal === '0' || doseVal.toUpperCase() === 'OMIT') {
+                summary = lang === 'fr' ? '⚠️ Warfarine: OMETTRE' : '⚠️ Warfarin: OMIT';
+            } else {
+                summary = '💊 Warfarine: ' + doseVal + ' mg';
+            }
+
+            lines.push('BEGIN:VEVENT');
+            lines.push('DTSTART:' + dtStart);
+            lines.push('DTEND:' + dtEnd);
+            lines.push('SUMMARY:' + summary);
+            lines.push('UID:warfarin-' + y + m + dd + '-' + i + '@inesss');
+            lines.push('BEGIN:VALARM');
+            lines.push('TRIGGER:-PT0M');
+            lines.push('ACTION:DISPLAY');
+            lines.push('DESCRIPTION:' + summary);
+            lines.push('END:VALARM');
+            lines.push('END:VEVENT');
+        }
+
+        lines.push('END:VCALENDAR');
+        var icsContent = lines.join('\r\n');
+
+        // Trigger download
+        var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'warfarin-calendar.ics';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // Show success
+        spinnerEl.style.display = 'none';
+        statusEl.className = 'success';
+        statusEl.textContent = lang === 'fr'
+            ? '✓ Calendrier prêt ! Ouvrez le fichier téléchargé pour l\'ajouter à votre calendrier.'
+            : '✓ Calendar ready! Open the downloaded file to add it to your calendar.';
+        manualLink.href = url;
+        manualLink.textContent = lang === 'fr' ? 'Cliquez ici si le téléchargement n\'a pas commencé' : 'Click here if download didn\'t start';
+        manualLink.style.display = 'inline';
+
+    } catch (e) {
+        spinnerEl.style.display = 'none';
+        statusEl.className = 'error';
+        statusEl.textContent = 'Error: Invalid or missing calendar data.';
+    }
+})();
+</script>
+</body>
+</html>
