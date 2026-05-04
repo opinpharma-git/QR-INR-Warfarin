@@ -88,11 +88,36 @@
             lines.push('DTEND:' + dtEnd);
             lines.push('SUMMARY:' + summary);
             lines.push('UID:warfarin-' + y + m + dd + '-' + i + '@inesss');
-            lines.push('BEGIN:VALARM');
-            lines.push('TRIGGER:-PT0M');
-            lines.push('ACTION:DISPLAY');
-            lines.push('DESCRIPTION:' + summary);
-            lines.push('END:VALARM');
+            if (doseVal === 'INR' || doseVal === 'RNI') {
+                // Advance alarms: 2 days before at 11 AM, 1 day before at 11 AM, test day at 11 AM
+                var evtMin = parseInt(hour) * 60 + parseInt(minute);
+                var off2d = 2 * 1440 + evtMin - 660;
+                var off1d = 1 * 1440 + evtMin - 660;
+                var off0d = evtMin - 660;
+                lines.push('BEGIN:VALARM');
+                lines.push('TRIGGER:-PT' + off2d + 'M');
+                lines.push('ACTION:DISPLAY');
+                lines.push('DESCRIPTION:' + summary);
+                lines.push('END:VALARM');
+                lines.push('BEGIN:VALARM');
+                lines.push('TRIGGER:-PT' + off1d + 'M');
+                lines.push('ACTION:DISPLAY');
+                lines.push('DESCRIPTION:' + summary);
+                lines.push('END:VALARM');
+                if (off0d > 0) {
+                    lines.push('BEGIN:VALARM');
+                    lines.push('TRIGGER:-PT' + off0d + 'M');
+                    lines.push('ACTION:DISPLAY');
+                    lines.push('DESCRIPTION:' + summary);
+                    lines.push('END:VALARM');
+                }
+            } else {
+                lines.push('BEGIN:VALARM');
+                lines.push('TRIGGER:-PT0M');
+                lines.push('ACTION:DISPLAY');
+                lines.push('DESCRIPTION:' + summary);
+                lines.push('END:VALARM');
+            }
             lines.push('END:VEVENT');
         }
 
