@@ -124,25 +124,22 @@
         lines.push('END:VCALENDAR');
         var icsContent = lines.join('\r\n');
 
-        // Trigger download
+        // Use data URI for cross-platform calendar import (fixes Android)
+        var dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsContent);
+        window.location.href = dataUri;
+
+        // Fallback: Blob download link for devices that don't handle data URI
         var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
         var url = URL.createObjectURL(blob);
-
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = 'warfarin-calendar.ics';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
 
         // Show success
         spinnerEl.style.display = 'none';
         statusEl.className = 'success';
         statusEl.textContent = lang === 'fr'
-            ? '✓ Calendrier prêt ! Ouvrez le fichier téléchargé pour l\'ajouter à votre calendrier.'
-            : '✓ Calendar ready! Open the downloaded file to add it to your calendar.';
+            ? '✓ Calendrier prêt ! Ajoutez-le à votre calendrier.'
+            : '✓ Calendar ready! Add it to your calendar.';
         manualLink.href = url;
-        manualLink.textContent = lang === 'fr' ? 'Cliquez ici si le téléchargement n\'a pas commencé' : 'Click here if download didn\'t start';
+        manualLink.textContent = lang === 'fr' ? 'Cliquez ici si rien ne s\'est passé' : 'Click here if nothing happened';
         manualLink.style.display = 'inline';
 
     } catch (e) {
