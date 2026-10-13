@@ -142,6 +142,20 @@
         var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
         var url = URL.createObjectURL(blob);
 
+        // iOS safety net: if the data URI navigation was blocked (page still visible),
+        // auto-trigger the download so no manual click is needed
+        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (isIOS) {
+            setTimeout(function () {
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'warfarin-calendar.ics';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }, 1500);
+        }
+
         // Show success
         spinnerEl.style.display = 'none';
         statusEl.className = 'success';
