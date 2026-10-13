@@ -75,12 +75,15 @@
             var y = eventDate.getFullYear();
             var m = String(eventDate.getMonth() + 1).padStart(2, '0');
             var dd = String(eventDate.getDate()).padStart(2, '0');
-            var dtStart = y + m + dd + 'T' + hour + minute + '00';
-            var dtEnd = y + m + dd + 'T' + hour + String(Math.min(parseInt(minute, 10) + 5, 59)).padStart(2, '0') + '00';
-
             var doseVal = doses[i].trim();
+            var isINR = doseVal === 'INR' || doseVal === 'RNI';
+            var evHour = isINR ? '11' : hour;
+            var evMin = isINR ? '00' : minute;
+            var dtStart = y + m + dd + 'T' + evHour + evMin + '00';
+            var dtEnd = y + m + dd + 'T' + evHour + String(Math.min(parseInt(evMin, 10) + 5, 59)).padStart(2, '0') + '00';
+
             var summary;
-            if (doseVal === 'INR' || doseVal === 'RNI') {
+            if (isINR) {
                 summary = lang === 'fr' ? '🩸 Test RNI' : '🩸 INR Test';
             } else if (doseVal === '0' || doseVal.toUpperCase() === 'OMIT') {
                 summary = lang === 'fr' ? '⚠️ Warfarine: OMETTRE' : '⚠️ Warfarin: OMIT';
@@ -94,9 +97,9 @@
             lines.push('SUMMARY:' + esc(summary));
             lines.push('UID:warfarin-' + y + m + dd + '-' + i + '@inesss');
             lines.push('DTSTAMP:' + dtStamp);
-            if (doseVal === 'INR' || doseVal === 'RNI') {
+            if (isINR) {
                 // Advance alarms: 2 days before at 11 AM, 1 day before at 11 AM, test day at 11 AM
-                var evtMin = parseInt(hour) * 60 + parseInt(minute);
+                var evtMin = parseInt(evHour) * 60 + parseInt(evMin);
                 var off2d = 2 * 1440 + evtMin - 660;
                 var off1d = 1 * 1440 + evtMin - 660;
                 var off0d = evtMin - 660;
@@ -110,7 +113,7 @@
                 lines.push('ACTION:DISPLAY');
                 lines.push('DESCRIPTION:' + esc(summary));
                 lines.push('END:VALARM');
-                if (off0d > 0) {
+                if (off0d >= 0) {
                     lines.push('BEGIN:VALARM');
                     lines.push('TRIGGER:-PT' + off0d + 'M');
                     lines.push('ACTION:DISPLAY');
