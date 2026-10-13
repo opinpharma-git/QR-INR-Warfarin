@@ -39,7 +39,7 @@
         // Required: s=start date (YYYY-MM-DD), d=comma-separated doses, t=reminder time (HH:MM)
         var startStr = params.s;
         var dosesStr = params.d;
-        var timeStr = params.t || '18:00';
+        var timeStr = params.t || '20:00';
         var lang = params.l || 'fr';
 
         if (!startStr || !dosesStr) throw new Error('Missing parameters');
