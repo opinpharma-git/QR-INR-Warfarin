@@ -65,6 +65,11 @@
             'X-WR-CALNAME:Warfarine'
         ];
 
+        // DTSTAMP is required by RFC 5545; some importers (Google Calendar) reject files without it
+        var now = new Date();
+        var dtStamp = now.getUTCFullYear() + String(now.getUTCMonth() + 1).padStart(2, '0') + String(now.getUTCDate()).padStart(2, '0') + 'T' + String(now.getUTCHours()).padStart(2, '0') + String(now.getUTCMinutes()).padStart(2, '0') + String(now.getUTCSeconds()).padStart(2, '0') + 'Z';
+        function esc(text) { return String(text).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,'); }
+
         for (var i = 0; i < doses.length; i++) {
             var eventDate = new Date(year, month, day + i);
             var y = eventDate.getFullYear();
@@ -86,8 +91,9 @@
             lines.push('BEGIN:VEVENT');
             lines.push('DTSTART:' + dtStart);
             lines.push('DTEND:' + dtEnd);
-            lines.push('SUMMARY:' + summary);
+            lines.push('SUMMARY:' + esc(summary));
             lines.push('UID:warfarin-' + y + m + dd + '-' + i + '@inesss');
+            lines.push('DTSTAMP:' + dtStamp);
             if (doseVal === 'INR' || doseVal === 'RNI') {
                 // Advance alarms: 2 days before at 11 AM, 1 day before at 11 AM, test day at 11 AM
                 var evtMin = parseInt(hour) * 60 + parseInt(minute);
@@ -97,25 +103,25 @@
                 lines.push('BEGIN:VALARM');
                 lines.push('TRIGGER:-PT' + off2d + 'M');
                 lines.push('ACTION:DISPLAY');
-                lines.push('DESCRIPTION:' + summary);
+                lines.push('DESCRIPTION:' + esc(summary));
                 lines.push('END:VALARM');
                 lines.push('BEGIN:VALARM');
                 lines.push('TRIGGER:-PT' + off1d + 'M');
                 lines.push('ACTION:DISPLAY');
-                lines.push('DESCRIPTION:' + summary);
+                lines.push('DESCRIPTION:' + esc(summary));
                 lines.push('END:VALARM');
                 if (off0d > 0) {
                     lines.push('BEGIN:VALARM');
                     lines.push('TRIGGER:-PT' + off0d + 'M');
                     lines.push('ACTION:DISPLAY');
-                    lines.push('DESCRIPTION:' + summary);
+                    lines.push('DESCRIPTION:' + esc(summary));
                     lines.push('END:VALARM');
                 }
             } else {
                 lines.push('BEGIN:VALARM');
                 lines.push('TRIGGER:-PT0M');
                 lines.push('ACTION:DISPLAY');
-                lines.push('DESCRIPTION:' + summary);
+                lines.push('DESCRIPTION:' + esc(summary));
                 lines.push('END:VALARM');
             }
             lines.push('END:VEVENT');
@@ -124,23 +130,42 @@
         lines.push('END:VCALENDAR');
         var icsContent = lines.join('\r\n');
 
-        // Use data URI for cross-platform calendar import (fixes Android)
-        var dataUri = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsContent);
-        window.location.href = dataUri;
-
-        // Fallback: Blob download link for devices that don't handle data URI
         var blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
         var url = URL.createObjectURL(blob);
 
-        // Show success
-        spinnerEl.style.display = 'none';
-        statusEl.className = 'success';
-        statusEl.textContent = lang === 'fr'
-            ? '✓ Calendrier prêt ! Ajoutez-le à votre calendrier.'
-            : '✓ Calendar ready! Add it to your calendar.';
-        manualLink.href = url;
-        manualLink.textContent = lang === 'fr' ? 'Cliquez ici si rien ne s\'est passé' : 'Click here if nothing happened';
-        manualLink.style.display = 'inline';
+        function showReadyMessage(msgFr, msgEn) {
+            spinnerEl.style.display = 'none';
+            statusEl.className = 'success';
+            statusEl.textContent = lang === 'fr' ? msgFr : msgEn;
+            manualLink.href = url;
+            manualLink.textContent = lang === 'fr' ? 'Cliquez ici si rien ne s\'est passé' : 'Click here if nothing happened';
+            manualLink.style.display = 'inline';
+        }
+
+        // Preferred: native share sheet (Android / iOS 15+) — user picks Calendar to import directly
+        var shareAttempted = false;
+        try {
+            var icsFile = new File([icsContent], 'warfarin-calendar.ics', { type: 'text/calendar' });
+            if (navigator.canShare && navigator.canShare({ files: [icsFile] })) {
+                shareAttempted = true;
+                navigator.share({ files: [icsFile], title: 'Warfarine' }).then(function () {
+                    showReadyMessage('✓ Calendrier partagé ! Vérifiez qu\'il a été ajouté à votre calendrier.', '✓ Calendar shared! Check that it was added to your calendar.');
+                }).catch(function () {
+                    showReadyMessage('✓ Calendrier prêt ! Ouvrez le fichier téléchargé pour l\'ajouter.', '✓ Calendar ready! Open the downloaded file to add it.');
+                });
+            }
+        } catch (e) { /* fall through to download */ }
+
+        // Fallback: direct download with proper filename (desktop + older mobile)
+        if (!shareAttempted) {
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'warfarin-calendar.ics';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showReadyMessage('✓ Calendrier prêt ! Ouvrez le fichier téléchargé pour l\'ajouter à votre calendrier.', '✓ Calendar ready! Open the downloaded file to add it to your calendar.');
+        }
 
     } catch (e) {
         spinnerEl.style.display = 'none';
